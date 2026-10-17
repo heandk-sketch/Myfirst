@@ -1,0 +1,75 @@
+.sva-wrap .sva-card {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	padding: 1rem 1.25rem;
+	margin: 1rem 0;
+	max-width: 1000px;
+}
+
+.sva-wrap .sva-card h2 {
+	margin-top: 0;
+}
+
+.sva-cards {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	margin: 1rem 0;
+	max-width: 1000px;
+}
+
+.sva-stat {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	padding: 0.75rem 1rem;
+	min-width: 160px;
+	flex: 1 1 160px;
+}
+
+.sva-stat-label {
+	display: block;
+	color: #50575e;
+	font-size: 12px;
+}
+
+.sva-stat-value {
+	display: block;
+	font-size: 18px;
+	font-weight: 600;
+}
+
+.sva-sources {
+	margin: 1rem 0;
+}
+
+.sva-suggestions > li {
+	margin-bottom: 1rem;
+}
+
+.sva-suggestions p {
+	margin: 0.25rem 0;
+}
+
+.sva-saving {
+	background: #e6f4ea;
+	color: #1a7f37;
+	border-radius: 3px;
+	padding: 1px 8px;
+	margin-left: 0.5rem;
+	font-weight: 600;
+}
+
+.sva-bar {
+	display: inline-block;
+	vertical-align: middle;
+	width: 120px;
+	height: 8px;
+	background: #e5e5e5;
+	margin-right: 6px;
+}
+
+.sva-bar > span {
+	display: block;
+	height: 100%;
+	background: #2271b1;
+}

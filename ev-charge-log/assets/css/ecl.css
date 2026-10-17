@@ -1,0 +1,31 @@
+.ecl-wrap {
+	max-width: 760px;
+}
+
+.ecl-wrap canvas {
+	width: 100%;
+	max-width: 100%;
+}
+
+.ecl-notice {
+	padding: 0.5rem 0.75rem;
+	border-left: 4px solid #2e7d32;
+	background: #f1f8f1;
+}
+
+.ecl-notice.ecl-error {
+	border-left-color: #c62828;
+	background: #fdf1f1;
+}
+
+.ecl-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.ecl-table th,
+.ecl-table td {
+	border-bottom: 1px solid #ddd;
+	padding: 0.4rem;
+	text-align: left;
+}
