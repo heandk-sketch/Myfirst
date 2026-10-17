@@ -17,6 +17,16 @@ Capacity is calculated as `kWh / (% / 100)`. For example 20 kWh for 40 % gives 5
 
 Data is stored in the `{prefix}ecl_charges` table. Saved rows can be reviewed and deleted under **Plugin Controller → EV Charge Log**.
 
+## Install as an app (Android)
+
+The page with `[ev_charge_log]` is an installable web app (manifest, service worker and icons are served by the plugin).
+
+1. The site must be served over **HTTPS** and reachable from the phone (a `.local` address on your PC will not work from the phone).
+2. Open the page in **Chrome** on Android, log in, and choose **⋮ → Installér app** (or *Føj til startskærm*).
+3. EV Log now opens full screen from the home screen.
+
+Pages are never cached offline because they contain your data; without internet the app shows a short "Ingen forbindelse" message. The camera/photo picker works the same as in the browser.
+
 ## Graph
 
 Seasons are shown as background colours: winter (Dec-Feb) white, spring (Mar-May) green, summer (Jun-Aug) yellow, autumn (Sep-Nov) orange.
