@@ -99,8 +99,12 @@ class ECL_Pwa {
 		if ( is_string( $permalink ) && '' !== $permalink ) {
 			$sw_url = esc_url_raw( self::url( 'sw' ) );
 			$scope  = esc_url_raw( self::scope_for( $permalink ) );
-			echo '<script>if("serviceWorker"in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register('
-				. wp_json_encode( $sw_url ) . ',{scope:' . wp_json_encode( $scope ) . '}).catch(function(){});});}</script>' . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON-encoded URLs.
+			// Removes a stale GolfScore service worker that could hijack navigation, then registers ours.
+			echo '<script>if("serviceWorker"in navigator){window.addEventListener("load",function(){'
+				. 'navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){'
+				. 'var u=r.active&&r.active.scriptURL?r.active.scriptURL:"";'
+				. 'if(u.indexOf("golfscore-pwa-sw=1")!==-1){r.unregister();}});}).catch(function(){}).finally(function(){'
+				. 'navigator.serviceWorker.register(' . wp_json_encode( $sw_url ) . ',{scope:' . wp_json_encode( $scope ) . '}).catch(function(){});});});}</script>' . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON-encoded URLs.
 		}
 	}
 
@@ -143,8 +147,9 @@ class ECL_Pwa {
 			'name'             => __( 'EV Charge Log', 'ev-charge-log' ),
 			'short_name'       => __( 'EV Log', 'ev-charge-log' ),
 			'description'      => __( 'Log opladninger og følg batterikapaciteten.', 'ev-charge-log' ),
+			'id'               => $start_url,
 			'start_url'        => $start_url,
-			'scope'            => self::scope_for( $start_url ),
+			'scope'             => self::scope_for( $start_url ),
 			'display'          => 'standalone',
 			'orientation'      => 'portrait',
 			'background_color' => '#ffffff',
