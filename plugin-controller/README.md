@@ -70,3 +70,23 @@ Plugin Controller har en **Local Access**-side, hvor administratorer kan konfigu
 Hver bruger kan tildeles adgang til bestemte plugins under **Plugin access**. Plugins registrerer sig med `pc_register_access_plugin( 'slug', 'Titel' )` (fx fra `plugins_loaded` med prioritet 20) og tjekker adgang med `pc_local_user_can_access( 'slug' )`. Brugere har som standard ikke adgang til nogen plugins, før en administrator har valgt dem.
 
 Frontend-plugins kan bruge `pc_get_local_access_user_id()` (returnerer `0`, hvis der ikke er et gyldigt lokalt login) og `pc_render_local_access_form()` til loginformularen. Formularen håndterer selv login og logout via nonce-beskyttede POST-forespørgsler. Shortcode-beskyttede data bør kun vises, når bruger-ID'et er større end nul.
+
+## Installerbare apps (PWA)
+
+Plugins, der skal kunne installeres som app på en telefon, registrerer sig med `pc_register_pwa()` (fx fra `plugins_loaded` med prioritet 20):
+
+```php
+pc_register_pwa(
+	array(
+		'slug'        => 'min-app',
+		'name'        => 'Min App',
+		'short_name'  => 'App',
+		'shortcode'   => 'min_app_shortcode',
+		'theme_color' => '#1a7f37',
+		'icon_192'    => MIN_APP_URL . 'icon-192.png',
+		'icon_512'    => MIN_APP_URL . 'icon-512.png',
+	)
+);
+```
+
+Hver side udskriver kun ét manifest og én service worker: den for den app, hvis shortcode ligger på siden. Andre PWA-plugins' hooks fjernes på siden (filteret `pc_pwa_conflicting_hooks` styrer listen; GolfScore er med som standard). Det forhindrer, at en app åbner en anden.

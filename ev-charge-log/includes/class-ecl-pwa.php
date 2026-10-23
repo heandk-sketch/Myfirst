@@ -29,6 +29,26 @@ class ECL_Pwa {
 	public function init(): void {
 		add_action( 'init', array( $this, 'maybe_serve' ), 1 );
 		add_action( 'wp_head', array( $this, 'render_head_tags' ), 2 );
+		add_action( 'wp', array( $this, 'isolate_from_other_pwas' ), 20 );
+	}
+
+	/**
+	 * Removes GolfScore PWA hooks on EV Charge Log pages so only one manifest is output.
+	 *
+	 * @return void
+	 */
+	public function isolate_from_other_pwas(): void {
+		$post = get_post();
+		if ( ! is_singular() || ! $post instanceof WP_Post || null === $this->get_shortcode_page( $post->ID ) ) {
+			return;
+		}
+
+		if ( function_exists( 'golfscore_add_pwa_head_tags' ) ) {
+			remove_action( 'wp_head', 'golfscore_add_pwa_head_tags' );
+		}
+		if ( function_exists( 'golfscore_enqueue_pwa_assets' ) ) {
+			remove_action( 'wp_enqueue_scripts', 'golfscore_enqueue_pwa_assets' );
+		}
 	}
 
 	/**

@@ -40,6 +40,23 @@ function ecl_bootstrap_plugin(): void {
 	$plugin = new ECL_Charge_Log();
 	$plugin->init();
 
+	if ( function_exists( 'pc_register_pwa' ) ) {
+		pc_register_pwa(
+			array(
+				'slug'        => 'ev-charge-log',
+				'name'        => __( 'EV Charge Log', 'ev-charge-log' ),
+				'short_name'  => __( 'EV Log', 'ev-charge-log' ),
+				'description' => __( 'Log opladninger og følg batterikapaciteten.', 'ev-charge-log' ),
+				'shortcode'   => 'ev_charge_log',
+				'theme_color' => '#1a7f37',
+				'icon_192'    => ECL_PLUGIN_URL . 'assets/images/icon-192.png',
+				'icon_512'    => ECL_PLUGIN_URL . 'assets/images/icon-512.png',
+			)
+		);
+		return;
+	}
+
+	// Older Plugin Controller without the shared PWA registry.
 	$pwa = new ECL_Pwa();
 	$pwa->init();
 }

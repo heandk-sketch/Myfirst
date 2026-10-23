@@ -24,6 +24,20 @@ define( 'PC_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
 require_once PC_PLUGIN_DIR . 'includes/class-plugin-controller.php';
 require_once PC_PLUGIN_DIR . 'includes/class-plugin-controller-access.php';
+require_once PC_PLUGIN_DIR . 'includes/class-plugin-controller-pwa.php';
+
+/**
+ * Registers an app that can be installed on a phone, without clashing with other apps.
+ *
+ * Required arguments: slug, name, shortcode. Optional: short_name, description,
+ * theme_color, background_color, icon_192, icon_512, orientation.
+ *
+ * @param array<string, mixed> $args App configuration.
+ * @return bool Whether the app was registered.
+ */
+function pc_register_pwa( array $args ): bool {
+	return PC_Plugin_Controller_Pwa::register_app( $args );
+}
 
 /**
  * Runs when the plugin is activated.
@@ -56,6 +70,9 @@ function pc_bootstrap_plugin() {
 
 	$access = new PC_Plugin_Controller_Access();
 	$access->init();
+
+	$pwa = new PC_Plugin_Controller_Pwa();
+	$pwa->init();
 }
 add_action( 'plugins_loaded', 'pc_bootstrap_plugin' );
 
