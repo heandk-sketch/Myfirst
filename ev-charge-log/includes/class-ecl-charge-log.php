@@ -39,6 +39,16 @@ class ECL_Charge_Log {
 	}
 
 	/**
+	 * Gets the saved photo table name.
+	 *
+	 * @return string
+	 */
+	private static function photos_table(): string {
+		global $wpdb;
+		return $wpdb->prefix . 'ecl_photos';
+	}
+
+	/**
 	 * Creates or upgrades the database table.
 	 *
 	 * @return void
@@ -61,6 +71,19 @@ class ECL_Charge_Log {
 				created_at DATETIME NOT NULL,
 				PRIMARY KEY  (id),
 				KEY ecl_charge_date_idx (charge_date)
+			) $charset;"
+		);
+
+		$photos_table = self::photos_table();
+		dbDelta(
+			"CREATE TABLE $photos_table (
+				id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+				local_user_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+				mime_type VARCHAR(50) NOT NULL,
+				image_data LONGBLOB NOT NULL,
+				created_at DATETIME NOT NULL,
+				PRIMARY KEY  (id),
+				KEY ecl_user_created_idx (local_user_id, created_at)
 			) $charset;"
 		);
 
@@ -89,8 +112,156 @@ class ECL_Charge_Log {
 
 		add_action( 'init', array( $this, 'handle_frontend_submission' ) );
 		add_action( 'admin_init', array( $this, 'handle_admin_delete' ) );
+		add_action( 'wp_ajax_ecl_save_photo', array( $this, 'handle_photo_upload' ) );
+		add_action( 'wp_ajax_nopriv_ecl_save_photo', array( $this, 'handle_photo_upload' ) );
+		add_action( 'wp_ajax_ecl_get_photo', array( $this, 'handle_photo_request' ) );
+		add_action( 'wp_ajax_nopriv_ecl_get_photo', array( $this, 'handle_photo_request' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'register_assets' ) );
 		add_shortcode( 'ev_charge_log', array( $this, 'render_shortcode' ) );
+	}
+
+	/**
+	 * Stores an uploaded photo and keeps only the three newest for its local user.
+	 *
+	 * @return void
+	 */
+	public function handle_photo_upload(): void {
+		check_ajax_referer( 'ecl_photo', 'nonce' );
+
+		if ( ! function_exists( 'pc_local_user_can_access' ) || ! pc_local_user_can_access( self::ACCESS_KEY ) ) {
+			wp_send_json_error( array( 'message' => __( 'Du har ikke adgang til EV Charge Log.', 'ev-charge-log' ) ), 403 );
+		}
+
+		$user_id = function_exists( 'pc_get_local_access_user_id' ) ? pc_get_local_access_user_id() : 0;
+		if ( 0 === $user_id || ! isset( $_FILES['ecl_photo'] ) || ! is_array( $_FILES['ecl_photo'] ) ) {
+			wp_send_json_error( array( 'message' => __( 'Billedet kunne ikke gemmes.', 'ev-charge-log' ) ), 400 );
+		}
+
+		$file = $_FILES['ecl_photo'];
+		if (
+			! isset( $file['error'], $file['size'], $file['tmp_name'] ) ||
+			UPLOAD_ERR_OK !== (int) $file['error'] ||
+			(int) $file['size'] <= 0 ||
+			(int) $file['size'] > 10 * MB_IN_BYTES ||
+			! is_string( $file['tmp_name'] ) ||
+			! is_uploaded_file( $file['tmp_name'] )
+		) {
+			wp_send_json_error( array( 'message' => __( 'Billedet kunne ikke gemmes. Vælg et billede på højst 10 MB.', 'ev-charge-log' ) ), 400 );
+		}
+
+		$image_info = getimagesize( $file['tmp_name'] );
+		$allowed    = array( 'image/jpeg', 'image/png', 'image/webp', 'image/gif' );
+		if ( false === $image_info || ! isset( $image_info['mime'] ) || ! in_array( $image_info['mime'], $allowed, true ) ) {
+			wp_send_json_error( array( 'message' => __( 'Billedformatet understøttes ikke. Brug JPEG, PNG, WebP eller GIF.', 'ev-charge-log' ) ), 400 );
+		}
+
+		$image_data = file_get_contents( $file['tmp_name'] );
+		if ( false === $image_data ) {
+			wp_send_json_error( array( 'message' => __( 'Billedet kunne ikke læses.', 'ev-charge-log' ) ), 500 );
+		}
+
+		global $wpdb;
+		$inserted = $wpdb->insert(
+			self::photos_table(),
+			array(
+				'local_user_id' => $user_id,
+				'mime_type'     => $image_info['mime'],
+				'image_data'    => $image_data,
+				'created_at'    => current_time( 'mysql' ),
+			),
+			array( '%d', '%s', '%s', '%s' )
+		);
+
+		if ( false === $inserted ) {
+			wp_send_json_error( array( 'message' => __( 'Billedet kunne ikke gemmes på serveren.', 'ev-charge-log' ) ), 500 );
+		}
+
+		$photo_id = (int) $wpdb->insert_id;
+		$third_id = $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT id FROM ' . self::photos_table() . ' WHERE local_user_id = %d ORDER BY id DESC LIMIT 1 OFFSET 2',
+				$user_id
+			)
+		);
+		if ( null !== $third_id ) {
+			$deleted = $wpdb->query(
+				$wpdb->prepare(
+					'DELETE FROM ' . self::photos_table() . ' WHERE local_user_id = %d AND id < %d',
+					$user_id,
+					(int) $third_id
+				)
+			);
+			if ( false === $deleted ) {
+				wp_send_json_error( array( 'message' => __( 'Billedet blev gemt, men ældre billeder kunne ikke slettes.', 'ev-charge-log' ) ), 500 );
+			}
+		}
+
+		wp_send_json_success(
+			array(
+				'id'        => $photo_id,
+				'imageUrl'  => $this->get_photo_url( $photo_id ),
+				'createdAt' => current_time( 'Y-m-d H:i' ),
+			)
+		);
+	}
+
+	/**
+	 * Serves a saved photo only to its owning local user.
+	 *
+	 * @return void
+	 */
+	public function handle_photo_request(): void {
+		check_ajax_referer( 'ecl_photo', 'nonce' );
+
+		if ( ! function_exists( 'pc_local_user_can_access' ) || ! pc_local_user_can_access( self::ACCESS_KEY ) ) {
+			status_header( 403 );
+			exit;
+		}
+
+		$user_id  = function_exists( 'pc_get_local_access_user_id' ) ? pc_get_local_access_user_id() : 0;
+		$photo_id = isset( $_GET['id'] ) ? absint( $_GET['id'] ) : 0;
+		if ( 0 === $user_id || 0 === $photo_id ) {
+			status_header( 404 );
+			exit;
+		}
+
+		global $wpdb;
+		$photo = $wpdb->get_row(
+			$wpdb->prepare(
+				'SELECT mime_type, image_data FROM ' . self::photos_table() . ' WHERE id = %d AND local_user_id = %d',
+				$photo_id,
+				$user_id
+			),
+			ARRAY_A
+		);
+		if ( ! is_array( $photo ) ) {
+			status_header( 404 );
+			exit;
+		}
+
+		nocache_headers();
+		header( 'Content-Type: ' . $photo['mime_type'] );
+		header( 'X-Content-Type-Options: nosniff' );
+		header( 'Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0' );
+		echo $photo['image_data']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Raw image bytes are served with a validated image MIME type.
+		exit;
+	}
+
+	/**
+	 * Gets a nonce-protected URL for a saved photo.
+	 *
+	 * @param int $photo_id Photo ID.
+	 * @return string
+	 */
+	private function get_photo_url( int $photo_id ): string {
+		return add_query_arg(
+			array(
+				'action' => 'ecl_get_photo',
+				'id'     => $photo_id,
+				'nonce'  => wp_create_nonce( 'ecl_photo' ),
+			),
+			admin_url( 'admin-ajax.php' )
+		);
 	}
 
 	/**
@@ -235,24 +406,30 @@ class ECL_Charge_Log {
 		$today        = current_time( 'Y-m-d' );
 
 		wp_enqueue_script( 'ecl-script' );
+		$saved_photos = $this->get_saved_photos();
 		wp_localize_script(
 			'ecl-script',
 			'eclData',
 			array(
 				'points'       => $graph_points,
 				'today'        => $today,
+				'ajaxUrl'      => admin_url( 'admin-ajax.php' ),
+				'photoNonce'   => wp_create_nonce( 'ecl_photo' ),
 				'tesseractUrl' => 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js',
 				'i18n'         => array(
-					'reading'   => __( 'Læser billedet… (første gang kan tage lidt tid)', 'ev-charge-log' ),
-					'done'      => __( 'Tjek de fundne værdier, ret dem om nødvendigt, og gem.', 'ev-charge-log' ),
-					'notFound'  => __( 'Kunne ikke finde alle værdier. Udfyld dem manuelt.', 'ev-charge-log' ),
-					'failed'    => __( 'Billedet kunne ikke læses. Udfyld værdierne manuelt.', 'ev-charge-log' ),
-					'noData'    => __( 'Ingen data endnu.', 'ev-charge-log' ),
-					'winter'    => __( 'Vinter', 'ev-charge-log' ),
-					'spring'    => __( 'Forår', 'ev-charge-log' ),
-					'summer'    => __( 'Sommer', 'ev-charge-log' ),
-					'autumn'    => __( 'Efterår', 'ev-charge-log' ),
-					'axisLabel' => __( 'Batterikapacitet (kWh)', 'ev-charge-log' ),
+					'reading'        => __( 'Læser billedet… (første gang kan tage lidt tid)', 'ev-charge-log' ),
+					'savingPhoto'    => __( 'Gemmer billedet …', 'ev-charge-log' ),
+					'photoSaved'     => __( 'Billedet er gemt. De tre nyeste billeder beholdes.', 'ev-charge-log' ),
+					'photoSaveFailed' => __( 'Billedet kunne ikke gemmes på serveren. OCR prøver stadig at læse det.', 'ev-charge-log' ),
+					'done'           => __( 'Tjek de fundne værdier, ret dem om nødvendigt, og gem.', 'ev-charge-log' ),
+					'notFound'       => __( 'Kunne ikke finde alle værdier. Udfyld dem manuelt.', 'ev-charge-log' ),
+					'failed'         => __( 'Billedet kunne ikke læses. Udfyld værdierne manuelt.', 'ev-charge-log' ),
+					'noData'         => __( 'Ingen data endnu.', 'ev-charge-log' ),
+					'winter'         => __( 'Vinter', 'ev-charge-log' ),
+					'spring'         => __( 'Forår', 'ev-charge-log' ),
+					'summer'         => __( 'Sommer', 'ev-charge-log' ),
+					'autumn'         => __( 'Efterår', 'ev-charge-log' ),
+					'axisLabel'      => __( 'Batterikapacitet (kWh)', 'ev-charge-log' ),
 				),
 			)
 		);
@@ -286,8 +463,19 @@ class ECL_Charge_Log {
 				<input type="file" id="ecl-photo" accept="image/*" capture="environment" />
 			</p>
 			<p id="ecl-ocr-status" role="status"></p>
+			<p id="ecl-photo-save-status" role="status"></p>
+			<h3><?php esc_html_e( 'Seneste gemte billeder', 'ev-charge-log' ); ?></h3>
+			<p><?php esc_html_e( 'Tryk på et billede for at prøve aflæsningen igen. De tre nyeste billeder gemmes.', 'ev-charge-log' ); ?></p>
+			<div id="ecl-saved-photos" class="ecl-saved-photos">
+				<?php foreach ( $saved_photos as $photo ) : ?>
+					<button type="button" class="ecl-saved-photo" data-photo-id="<?php echo esc_attr( (string) $photo['id'] ); ?>">
+						<img src="<?php echo esc_url( $this->get_photo_url( (int) $photo['id'] ) ); ?>" alt="<?php echo esc_attr( sprintf( __( 'Gemt billede fra %s', 'ev-charge-log' ), $photo['created_at'] ) ); ?>" />
+						<span><?php echo esc_html( (string) $photo['created_at'] ); ?></span>
+					</button>
+				<?php endforeach; ?>
+			</div>
 
-			<form method="post" action="<?php echo esc_url( $current_url ); ?>">
+			<form id="ecl-charge-form" method="post" action="<?php echo esc_url( $current_url ); ?>">
 				<?php wp_nonce_field( 'ecl_add_charge', 'ecl_nonce' ); ?>
 				<input type="hidden" name="ecl_action" value="add_charge" />
 				<input type="hidden" name="ecl_return_url" value="<?php echo esc_url( $current_url ); ?>" />
@@ -339,6 +527,27 @@ class ECL_Charge_Log {
 		</div>
 		<?php
 		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Gets the three newest saved photos for the current local user.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function get_saved_photos(): array {
+		global $wpdb;
+		$user_id = function_exists( 'pc_get_local_access_user_id' ) ? pc_get_local_access_user_id() : 0;
+		if ( 0 === $user_id ) {
+			return array();
+		}
+
+		return (array) $wpdb->get_results(
+			$wpdb->prepare(
+				'SELECT id, created_at FROM ' . self::photos_table() . ' WHERE local_user_id = %d ORDER BY id DESC LIMIT 3',
+				$user_id
+			),
+			ARRAY_A
+		);
 	}
 
 	/**

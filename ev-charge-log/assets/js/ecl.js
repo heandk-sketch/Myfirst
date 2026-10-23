@@ -9,6 +9,9 @@
 	}
 	var fallbackI18n = {
 		reading: 'Læser billedet… (første gang kan tage lidt tid)',
+		savingPhoto: 'Gemmer billedet …',
+		photoSaved: 'Billedet er gemt. De tre nyeste billeder beholdes.',
+		photoSaveFailed: 'Billedet kunne ikke gemmes på serveren. OCR prøver stadig at læse det.',
 		done: 'Tjek de fundne værdier, ret dem om nødvendigt, og gem.',
 		notFound: 'Kunne ikke finde alle værdier. Udfyld dem manuelt.',
 		failed: 'Billedet kunne ikke læses. Udfyld værdierne manuelt.',
@@ -30,6 +33,8 @@
 		today: canvas && canvas.getAttribute( 'data-today' ) ?
 			canvas.getAttribute( 'data-today' ) :
 			( typeof localizedData.today === 'string' ? localizedData.today : localToday ),
+		ajaxUrl: typeof localizedData.ajaxUrl === 'string' ? localizedData.ajaxUrl : '',
+		photoNonce: typeof localizedData.photoNonce === 'string' ? localizedData.photoNonce : '',
 		tesseractUrl: typeof localizedData.tesseractUrl === 'string' && localizedData.tesseractUrl ?
 			localizedData.tesseractUrl :
 			'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'
@@ -44,7 +49,10 @@
 	var kwhInput = document.getElementById( 'ecl-kwh' );
 	var preview = document.getElementById( 'ecl-capacity-preview' );
 	var statusEl = document.getElementById( 'ecl-ocr-status' );
+	var photoSaveStatusEl = document.getElementById( 'ecl-photo-save-status' );
 	var photoInput = document.getElementById( 'ecl-photo' );
+	var savedPhotos = document.getElementById( 'ecl-saved-photos' );
+	var chargeSubmitButton = document.querySelector( '#ecl-charge-form button[type="submit"]' );
 
 	function toNumber( value ) {
 		var n = parseFloat( String( value ).replace( ',', '.' ) );
@@ -118,29 +126,128 @@
 		statusEl.style.color = ok ? '#1a7f37' : '#b42318';
 	}
 
+	function processPhoto( source ) {
+		statusEl.textContent = i18n.reading;
+
+		loadTesseract()
+			.then( function ( Tesseract ) {
+				return Tesseract.recognize( source, 'eng' );
+			} )
+			.then( function ( result ) {
+				var found = parseText( result.data.text || '' );
+				if ( found.percent ) {
+					percentInput.value = found.percent;
+				}
+				if ( found.kwh ) {
+					kwhInput.value = found.kwh;
+				}
+				updatePreview();
+				showResult( found );
+			} )
+			.catch( function () {
+				statusEl.textContent = i18n.failed;
+				statusEl.style.color = '#b42318';
+			} );
+	}
+
+	function addSavedPhoto( photo ) {
+		if ( ! savedPhotos ) {
+			return;
+		}
+
+		var button = document.createElement( 'button' );
+		button.type = 'button';
+		button.className = 'ecl-saved-photo';
+		button.setAttribute( 'data-photo-id', String( photo.id ) );
+
+		var image = document.createElement( 'img' );
+		image.src = photo.imageUrl;
+		image.alt = 'Gemt billede fra ' + photo.createdAt;
+
+		var caption = document.createElement( 'span' );
+		caption.textContent = photo.createdAt;
+		button.appendChild( image );
+		button.appendChild( caption );
+		savedPhotos.insertBefore( button, savedPhotos.firstChild );
+
+		while ( savedPhotos.children.length > 3 ) {
+			savedPhotos.removeChild( savedPhotos.lastChild );
+		}
+	}
+
+	function savePhoto( file ) {
+		var formData = new FormData();
+		formData.append( 'action', 'ecl_save_photo' );
+		formData.append( 'nonce', data.photoNonce );
+		formData.append( 'ecl_photo', file );
+
+		return fetch( data.ajaxUrl, {
+			method: 'POST',
+			body: formData,
+			credentials: 'same-origin'
+		} ).then( function ( response ) {
+			return response.json().then( function ( result ) {
+				if ( ! response.ok || ! result.success ) {
+					throw new Error( result.data && result.data.message ? result.data.message : i18n.photoSaveFailed );
+				}
+				return result.data;
+			} );
+		} );
+	}
+
 	if ( photoInput ) {
 		photoInput.addEventListener( 'change', function () {
 			var file = photoInput.files && photoInput.files[ 0 ];
 			if ( ! file ) {
 				return;
 			}
-			statusEl.textContent = i18n.reading;
 
-			loadTesseract()
-				.then( function ( Tesseract ) {
-					return Tesseract.recognize( file, 'eng' );
+			photoSaveStatusEl.textContent = i18n.savingPhoto;
+			photoSaveStatusEl.style.color = '';
+			if ( chargeSubmitButton ) {
+				chargeSubmitButton.disabled = true;
+			}
+			savePhoto( file )
+				.then( function ( photo ) {
+					addSavedPhoto( photo );
+					photoSaveStatusEl.textContent = i18n.photoSaved;
+					photoSaveStatusEl.style.color = '#1a7f37';
 				} )
-				.then( function ( result ) {
-					var found = parseText( result.data.text || '' );
-					if ( found.percent ) {
-						percentInput.value = found.percent;
-					}
-					if ( found.kwh ) {
-						kwhInput.value = found.kwh;
-					}
-					updatePreview();
-					showResult( found );
+				.catch( function ( error ) {
+					photoSaveStatusEl.textContent = error.message || i18n.photoSaveFailed;
+					photoSaveStatusEl.style.color = '#b42318';
 				} )
+				.finally( function () {
+					if ( chargeSubmitButton ) {
+						chargeSubmitButton.disabled = false;
+					}
+				} );
+
+			processPhoto( file );
+		} );
+	}
+
+	if ( savedPhotos ) {
+		savedPhotos.addEventListener( 'click', function ( event ) {
+			var button = event.target.closest( '.ecl-saved-photo' );
+			if ( ! button ) {
+				return;
+			}
+
+			var image = button.querySelector( 'img' );
+			if ( ! image ) {
+				return;
+			}
+
+			statusEl.textContent = i18n.reading;
+			fetch( image.src, { credentials: 'same-origin' } )
+				.then( function ( response ) {
+					if ( ! response.ok ) {
+						throw new Error( 'Kunne ikke hente det gemte billede.' );
+					}
+					return response.blob();
+				} )
+				.then( processPhoto )
 				.catch( function () {
 					statusEl.textContent = i18n.failed;
 					statusEl.style.color = '#b42318';

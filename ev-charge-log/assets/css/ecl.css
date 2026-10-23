@@ -29,3 +29,35 @@
 	padding: 0.4rem;
 	text-align: left;
 }
+
+.ecl-saved-photos {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	margin-bottom: 1.5rem;
+}
+
+.ecl-saved-photo {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	max-width: 9rem;
+	padding: 0.4rem;
+	border: 1px solid #bbb;
+	border-radius: 0.25rem;
+	background: #fff;
+	color: inherit;
+	cursor: pointer;
+	text-align: left;
+}
+
+.ecl-saved-photo img {
+	display: block;
+	width: 8rem;
+	height: 6rem;
+	object-fit: cover;
+}
+
+.ecl-saved-photo span {
+	font-size: 0.8rem;
+}
