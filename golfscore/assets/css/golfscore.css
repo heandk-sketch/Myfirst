@@ -1,0 +1,429 @@
+.golfscore-container {
+    max-width: 900px;
+    margin: 20px 0;
+    padding: 20px;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.golfscore-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #0073aa;
+}
+
+.golfscore-header h2 {
+    margin: 0;
+    color: #0073aa;
+}
+
+.golfscore-progress {
+    font-size: 18px;
+    font-weight: bold;
+    color: #666;
+}
+
+.golfscore-create-session {
+    background: #fff;
+    padding: 20px;
+    margin-bottom: 30px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+}
+
+.golfscore-create-session form {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+}
+
+.golfscore-create-session label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+.golfscore-create-session input[type="text"] {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    flex: 1;
+}
+
+#session-message {
+    margin-top: 10px;
+    padding: 10px;
+    display: none;
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+    border-radius: 4px;
+}
+
+.golfscore-sessions-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+}
+
+.golfscore-sessions-table thead {
+    background: #f0f0f0;
+}
+
+.golfscore-sessions-table th,
+.golfscore-sessions-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.golfscore-sessions-table tr:hover {
+    background: #f5f5f5;
+}
+
+.golfscore-sessions-table .button {
+    margin-right: 5px;
+    font-size: 12px;
+}
+
+.golfscore-scoring-grid {
+    background: #fff;
+    padding: 20px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.golfscore-scoring-grid h3 {
+    margin-top: 0;
+    color: #0073aa;
+}
+
+.golfscore-player-input {
+    margin-bottom: 20px;
+    display: flex;
+    align-items: flex-end;
+    gap: 15px;
+}
+
+.golfscore-player-input label {
+    flex: 1;
+    font-weight: bold;
+    margin-bottom: 0;
+    min-width: 150px;
+}
+
+.golfscore-score-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.golfscore-score-btn {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 2px solid #0073aa;
+    background: #fff;
+    color: #0073aa;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.golfscore-score-btn:hover {
+    background: #e8f4f8;
+}
+
+.golfscore-score-btn.active {
+    background: #0073aa;
+    color: #fff;
+}
+
+.golfscore-player-input input[type="number"] {
+    flex: 0 1 80px;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+    text-align: center;
+}
+
+.golfscore-navigation {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    justify-content: space-between;
+}
+
+.golfscore-navigation .button {
+    padding: 10px 20px;
+    font-size: 16px;
+}
+
+.golfscore-response {
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+    display: none;
+}
+
+.golfscore-response.success {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+    display: block;
+}
+
+.golfscore-response.error {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    display: block;
+}
+
+.golfscore-scorecard {
+    background: #fff;
+    padding: 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    margin-top: 10px;
+    overflow-x: auto;
+}
+
+.golfscore-scorecard h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.golfscore-scorecard-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 16px;
+}
+
+.golfscore-scorecard-table thead {
+    background: #f0f0f0;
+}
+
+.golfscore-scorecard-table th,
+.golfscore-scorecard-table td {
+    padding: 6px;
+    border: 1px solid #ddd;
+    text-align: center;
+}
+
+.golfscore-scorecard-table td:first-child,
+.golfscore-scorecard-table th:first-child {
+    text-align: left;
+    font-weight: bold;
+}
+
+.golfscore-scorecard-table th.current,
+.golfscore-scorecard-table td.current {
+    background: #e8f4f8;
+    font-weight: bold;
+    color: #0073aa;
+}
+
+.golfscore-scorecard-table td.total {
+    background: #f0f0f0;
+    font-weight: bold;
+}
+
+.golfscore-scorecard-table tbody tr:nth-child(odd) {
+    background: #fafafa;
+}
+
+.button {
+    display: inline-block;
+    padding: 8px 12px;
+    background: #0073aa;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    text-decoration: none;
+    transition: background 0.3s;
+}
+
+.button:hover {
+    background: #005a87;
+}
+
+.button-primary {
+    background: #00a32a;
+}
+
+.button-primary:hover {
+    background: #008000;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .golfscore-container {
+        padding: 12px;
+        margin: 10px 0;
+    }
+
+    .golfscore-header {
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .golfscore-header h2 {
+        font-size: 20px;
+    }
+
+    .golfscore-progress {
+        font-size: 16px;
+    }
+
+    .golfscore-create-session form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .golfscore-create-session input[type="text"] {
+        flex: 1;
+        font-size: 16px;
+        padding: 12px;
+    }
+
+    .golfscore-player-input {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .golfscore-player-input label {
+        min-width: auto;
+        margin-bottom: 5px;
+        font-size: 15px;
+    }
+
+    .golfscore-player-input input[type="number"] {
+        flex: 1;
+        font-size: 18px;
+        padding: 12px;
+    }
+
+    .golfscore-score-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 18px;
+    }
+
+    .golfscore-score-buttons {
+        gap: 5px;
+        flex-wrap: wrap;
+    }
+
+    .golfscore-navigation {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .golfscore-navigation .button {
+        width: 100%;
+        padding: 15px;
+        font-size: 16px;
+    }
+
+    .golfscore-scorecard {
+        padding: 8px;
+        margin-top: 15px;
+    }
+
+    .golfscore-scorecard-table {
+        font-size: 13px;
+    }
+
+    .golfscore-scorecard-table th,
+    .golfscore-scorecard-table td {
+        padding: 6px;
+    }
+
+    .button {
+        padding: 12px;
+        font-size: 15px;
+        min-height: 44px;
+    }
+
+    #golfscore-add-player-form {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    #golfscore-add-player-form input[type="text"] {
+        font-size: 16px;
+        padding: 12px;
+    }
+}
+
+/* Add Players Section */
+.golfscore-add-players-section {
+    background: #fff;
+    padding: 20px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    margin-bottom: 30px;
+}
+
+.golfscore-add-players-section h3 {
+    margin-top: 0;
+    color: #0073aa;
+    border-bottom: 2px solid #0073aa;
+    padding-bottom: 10px;
+}
+
+#golfscore-add-player-form {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+}
+
+#golfscore-add-player-form label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    flex: 1;
+}
+
+#golfscore-add-player-form input[type="text"] {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    flex: 1;
+}
+
+#golfscore-add-player-form .button {
+    padding: 8px 16px;
+}
+
+#golfscore-add-player-message {
+    margin-top: 10px;
+    padding: 10px;
+    display: none;
+    border-radius: 4px;
+}
+
+#golfscore-add-player-message.success {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+
+#golfscore-add-player-message.error {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
