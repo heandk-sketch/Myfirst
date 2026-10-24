@@ -155,6 +155,9 @@
 			return;
 		}
 
+		var item = document.createElement( 'div' );
+		item.className = 'ecl-saved-item';
+
 		var button = document.createElement( 'button' );
 		button.type = 'button';
 		button.className = 'ecl-saved-photo';
@@ -168,7 +171,33 @@
 		caption.textContent = photo.createdAt;
 		button.appendChild( image );
 		button.appendChild( caption );
-		savedPhotos.insertBefore( button, savedPhotos.firstChild );
+
+		var actions = document.createElement( 'div' );
+		actions.className = 'ecl-photo-actions';
+
+		var copyButton = document.createElement( 'button' );
+		copyButton.type = 'button';
+		copyButton.className = 'ecl-photo-copy';
+		copyButton.textContent = 'Kopiér';
+
+		var download = document.createElement( 'a' );
+		download.className = 'ecl-photo-download';
+		download.href = photo.imageUrl;
+		download.setAttribute( 'download', 'ev-charge-' + photo.id + '.jpg' );
+		download.textContent = 'Gem';
+
+		actions.appendChild( copyButton );
+		actions.appendChild( download );
+
+		var deleteButton = document.createElement( 'button' );
+		deleteButton.type = 'button';
+		deleteButton.className = 'ecl-photo-delete';
+		deleteButton.setAttribute( 'aria-label', 'Slet billede' );
+		deleteButton.textContent = '🗑';
+		actions.appendChild( deleteButton );
+		item.appendChild( button );
+		item.appendChild( actions );
+		savedPhotos.insertBefore( item, savedPhotos.firstChild );
 
 		while ( savedPhotos.children.length > 3 ) {
 			savedPhotos.removeChild( savedPhotos.lastChild );
@@ -264,8 +293,92 @@
 		} );
 	}
 
+	// The clipboard only accepts PNG images, so the saved JPEG is converted first.
+	function copyImageToClipboard( src ) {
+		if ( ! navigator.clipboard || ! window.ClipboardItem ) {
+			return Promise.reject( new Error( 'unsupported' ) );
+		}
+
+		return fetch( src, { credentials: 'same-origin' } )
+			.then( function ( response ) {
+				if ( ! response.ok ) {
+					throw new Error( 'fetch' );
+				}
+				return response.blob();
+			} )
+			.then( function ( blob ) {
+				return createImageBitmap( blob );
+			} )
+			.then( function ( bitmap ) {
+				var tmp = document.createElement( 'canvas' );
+				tmp.width = bitmap.width;
+				tmp.height = bitmap.height;
+				tmp.getContext( '2d' ).drawImage( bitmap, 0, 0 );
+				return new Promise( function ( resolve, reject ) {
+					tmp.toBlob( function ( png ) {
+						return png ? resolve( png ) : reject( new Error( 'png' ) );
+					}, 'image/png' );
+				} );
+			} )
+			.then( function ( png ) {
+				return navigator.clipboard.write( [ new ClipboardItem( { 'image/png': png } ) ] );
+			} );
+	}
+
+	function deletePhoto( item ) {
+		var button = item.querySelector( '.ecl-saved-photo' );
+		var formData = new FormData();
+		formData.append( 'action', 'ecl_delete_photo' );
+		formData.append( 'nonce', data.photoNonce );
+		formData.append( 'id', button.getAttribute( 'data-photo-id' ) );
+
+		return fetch( data.ajaxUrl, { method: 'POST', body: formData, credentials: 'same-origin' } )
+			.then( function ( response ) {
+				return response.json();
+			} )
+			.then( function ( result ) {
+				if ( ! result.success ) {
+					throw new Error( result.data && result.data.message ? result.data.message : 'Billedet kunne ikke slettes.' );
+				}
+				item.remove();
+			} );
+	}
+
 	if ( savedPhotos ) {
 		savedPhotos.addEventListener( 'click', function ( event ) {
+			var deleteButton = event.target.closest( '.ecl-photo-delete' );
+			if ( deleteButton ) {
+				if ( ! window.confirm( 'Vil du slette dette billede?' ) ) {
+					return;
+				}
+				deleteButton.disabled = true;
+				deletePhoto( deleteButton.closest( '.ecl-saved-item' ) ).catch( function ( error ) {
+					deleteButton.disabled = false;
+					photoSaveStatusEl.textContent = error.message || 'Billedet kunne ikke slettes.';
+					photoSaveStatusEl.style.color = '#b42318';
+				} );
+				return;
+			}
+
+			var copyButton = event.target.closest( '.ecl-photo-copy' );
+			if ( copyButton ) {
+				var copyImage = copyButton.closest( '.ecl-saved-item' ).querySelector( 'img' );
+				copyButton.textContent = '…';
+				copyImageToClipboard( copyImage.src )
+					.then( function () {
+						copyButton.textContent = 'Kopieret ✔';
+					} )
+					.catch( function () {
+						copyButton.textContent = 'Højreklik på billedet';
+					} )
+					.finally( function () {
+						setTimeout( function () {
+							copyButton.textContent = 'Kopiér';
+						}, 2500 );
+					} );
+				return;
+			}
+
 			var button = event.target.closest( '.ecl-saved-photo' );
 			if ( ! button ) {
 				return;

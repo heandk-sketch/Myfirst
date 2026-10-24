@@ -116,6 +116,8 @@ class ECL_Charge_Log {
 		add_action( 'wp_ajax_nopriv_ecl_save_photo', array( $this, 'handle_photo_upload' ) );
 		add_action( 'wp_ajax_ecl_get_photo', array( $this, 'handle_photo_request' ) );
 		add_action( 'wp_ajax_nopriv_ecl_get_photo', array( $this, 'handle_photo_request' ) );
+		add_action( 'wp_ajax_ecl_delete_photo', array( $this, 'handle_photo_delete' ) );
+		add_action( 'wp_ajax_nopriv_ecl_delete_photo', array( $this, 'handle_photo_delete' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'register_assets' ) );
 		add_shortcode( 'ev_charge_log', array( $this, 'render_shortcode' ) );
 	}
@@ -248,6 +250,41 @@ class ECL_Charge_Log {
 	}
 
 	/**
+	 * Deletes a saved photo owned by the current local user.
+	 *
+	 * @return void
+	 */
+	public function handle_photo_delete(): void {
+		check_ajax_referer( 'ecl_photo', 'nonce' );
+
+		if ( ! function_exists( 'pc_local_user_can_access' ) || ! pc_local_user_can_access( self::ACCESS_KEY ) ) {
+			wp_send_json_error( array( 'message' => __( 'Du har ikke adgang til EV Charge Log.', 'ev-charge-log' ) ), 403 );
+		}
+
+		$user_id  = function_exists( 'pc_get_local_access_user_id' ) ? pc_get_local_access_user_id() : 0;
+		$photo_id = isset( $_POST['id'] ) ? absint( $_POST['id'] ) : 0;
+		if ( 0 === $user_id || 0 === $photo_id ) {
+			wp_send_json_error( array( 'message' => __( 'Billedet blev ikke fundet.', 'ev-charge-log' ) ), 400 );
+		}
+
+		global $wpdb;
+		$deleted = $wpdb->delete(
+			self::photos_table(),
+			array(
+				'id'            => $photo_id,
+				'local_user_id' => $user_id,
+			),
+			array( '%d', '%d' )
+		);
+
+		if ( false === $deleted || 0 === $deleted ) {
+			wp_send_json_error( array( 'message' => __( 'Billedet kunne ikke slettes.', 'ev-charge-log' ) ), 404 );
+		}
+
+		wp_send_json_success();
+	}
+
+	/**
 	 * Gets a nonce-protected URL for a saved photo.
 	 *
 	 * @param int $photo_id Photo ID.
@@ -270,6 +307,10 @@ class ECL_Charge_Log {
 	 * @return void
 	 */
 	public function register_assets(): void {
+		// Block themes render shortcodes before wp_enqueue_scripts, so this may run twice.
+		if ( wp_style_is( 'ecl-styles', 'registered' ) ) {
+			return;
+		}
 		wp_register_style( 'ecl-styles', ECL_PLUGIN_URL . 'assets/css/ecl.css', array(), ECL_PLUGIN_VERSION );
 		wp_register_script( 'ecl-script', ECL_PLUGIN_URL . 'assets/js/ecl.js', array(), ECL_PLUGIN_VERSION, true );
 	}
@@ -388,6 +429,7 @@ class ECL_Charge_Log {
 	 * @return string
 	 */
 	public function render_shortcode(): string {
+		$this->register_assets();
 		wp_enqueue_style( 'ecl-styles' );
 
 		if ( ! function_exists( 'pc_get_local_access_user_id' ) || ! function_exists( 'pc_render_local_access_form' ) ) {
@@ -448,7 +490,19 @@ class ECL_Charge_Log {
 		ob_start();
 		?>
 		<div class="ecl-wrap">
-			<h2><?php esc_html_e( 'EV Charge Log', 'ev-charge-log' ); ?></h2>
+			<header class="ecl-hero">
+				<span class="ecl-hero-icon" aria-hidden="true">⚡</span>
+				<div>
+					<h2><?php esc_html_e( 'EV Charge Log', 'ev-charge-log' ); ?></h2>
+					<p class="ecl-hero-sub"><?php esc_html_e( 'Batteriets sundhed, opladning for opladning', 'ev-charge-log' ); ?></p>
+				</div>
+				<?php if ( ! empty( $recent ) ) : ?>
+					<div class="ecl-stat">
+						<strong><?php echo esc_html( number_format_i18n( (float) $recent[0]['capacity_kwh'], 1 ) ); ?></strong>
+						<span><?php esc_html_e( 'kWh seneste kapacitet', 'ev-charge-log' ); ?></span>
+					</div>
+				<?php endif; ?>
+			</header>
 
 			<?php if ( 'saved' === $status ) : ?>
 				<p class="ecl-notice" role="status"><?php esc_html_e( 'Opladningen blev gemt.', 'ev-charge-log' ); ?></p>
@@ -458,43 +512,62 @@ class ECL_Charge_Log {
 				<p class="ecl-notice ecl-error" role="alert"><?php esc_html_e( 'Opladningen kunne ikke gemmes.', 'ev-charge-log' ); ?></p>
 			<?php endif; ?>
 
-			<p>
-				<label for="ecl-photo"><?php esc_html_e( 'Tag et billede af ladeskærmen', 'ev-charge-log' ); ?></label><br />
-				<input type="file" id="ecl-photo" accept="image/*" capture="environment" />
-			</p>
-			<p id="ecl-ocr-status" role="status"></p>
-			<p id="ecl-photo-save-status" role="status"></p>
+			<section class="ecl-card">
+				<label for="ecl-photo" class="ecl-camera-btn">
+					<span aria-hidden="true">📷</span>
+					<?php esc_html_e( 'Tag et billede af ladeskærmen', 'ev-charge-log' ); ?>
+				</label>
+				<input type="file" id="ecl-photo" class="ecl-file-input" accept="image/*" capture="environment" />
+				<p id="ecl-ocr-status" role="status"></p>
+				<p id="ecl-photo-save-status" role="status"></p>
+			</section>
+
+			<section class="ecl-card">
 			<h3><?php esc_html_e( 'Seneste gemte billeder', 'ev-charge-log' ); ?></h3>
-			<p><?php esc_html_e( 'Tryk på et billede for at prøve aflæsningen igen. De tre nyeste billeder gemmes.', 'ev-charge-log' ); ?></p>
+			<p class="ecl-hint"><?php esc_html_e( 'Tryk på et billede for at prøve aflæsningen igen. De tre nyeste billeder gemmes.', 'ev-charge-log' ); ?></p>
 			<div id="ecl-saved-photos" class="ecl-saved-photos">
 				<?php foreach ( $saved_photos as $photo ) : ?>
-					<button type="button" class="ecl-saved-photo" data-photo-id="<?php echo esc_attr( (string) $photo['id'] ); ?>">
-						<img src="<?php echo esc_url( $this->get_photo_url( (int) $photo['id'] ) ); ?>" alt="<?php echo esc_attr( sprintf( __( 'Gemt billede fra %s', 'ev-charge-log' ), $photo['created_at'] ) ); ?>" />
-						<span><?php echo esc_html( (string) $photo['created_at'] ); ?></span>
-					</button>
+					<?php $photo_url = $this->get_photo_url( (int) $photo['id'] ); ?>
+					<div class="ecl-saved-item">
+						<button type="button" class="ecl-saved-photo" data-photo-id="<?php echo esc_attr( (string) $photo['id'] ); ?>">
+							<img src="<?php echo esc_url( $photo_url ); ?>" alt="<?php echo esc_attr( sprintf( __( 'Gemt billede fra %s', 'ev-charge-log' ), $photo['created_at'] ) ); ?>" />
+							<span><?php echo esc_html( (string) $photo['created_at'] ); ?></span>
+						</button>
+						<div class="ecl-photo-actions">
+							<button type="button" class="ecl-photo-copy"><?php esc_html_e( 'Kopiér', 'ev-charge-log' ); ?></button>
+							<a class="ecl-photo-download" href="<?php echo esc_url( $photo_url ); ?>" download="ev-charge-<?php echo esc_attr( (string) $photo['id'] ); ?>.jpg"><?php esc_html_e( 'Gem', 'ev-charge-log' ); ?></a>
+							<button type="button" class="ecl-photo-delete" aria-label="<?php esc_attr_e( 'Slet billede', 'ev-charge-log' ); ?>">🗑</button>
+						</div>
+					</div>
 				<?php endforeach; ?>
 			</div>
+			</section>
 
-			<form id="ecl-charge-form" method="post" action="<?php echo esc_url( $current_url ); ?>">
+			<form id="ecl-charge-form" class="ecl-card" method="post" action="<?php echo esc_url( $current_url ); ?>">
 				<?php wp_nonce_field( 'ecl_add_charge', 'ecl_nonce' ); ?>
 				<input type="hidden" name="ecl_action" value="add_charge" />
 				<input type="hidden" name="ecl_return_url" value="<?php echo esc_url( $current_url ); ?>" />
-				<p>
-					<label for="ecl-percent"><?php esc_html_e( 'Opladet (%)', 'ev-charge-log' ); ?></label><br />
-					<input type="text" inputmode="decimal" id="ecl-percent" name="ecl_percent" required />
-				</p>
-				<p>
-					<label for="ecl-kwh"><?php esc_html_e( 'Opladet (kWh)', 'ev-charge-log' ); ?></label><br />
-					<input type="text" inputmode="decimal" id="ecl-kwh" name="ecl_kwh" required />
-				</p>
+				<div class="ecl-fields">
+					<p>
+						<label for="ecl-percent"><?php esc_html_e( 'Opladet (%)', 'ev-charge-log' ); ?></label>
+						<input type="text" inputmode="decimal" id="ecl-percent" name="ecl_percent" required />
+					</p>
+					<p>
+						<label for="ecl-kwh"><?php esc_html_e( 'Opladet (kWh)', 'ev-charge-log' ); ?></label>
+						<input type="text" inputmode="decimal" id="ecl-kwh" name="ecl_kwh" required />
+					</p>
+				</div>
 				<p id="ecl-capacity-preview"></p>
-				<button type="submit"><?php esc_html_e( 'Gem opladning', 'ev-charge-log' ); ?></button>
+				<button type="submit" class="ecl-primary-btn"><?php esc_html_e( 'Gem opladning', 'ev-charge-log' ); ?></button>
 			</form>
 
+			<section class="ecl-card">
 			<h3><?php esc_html_e( 'Batterikapacitet de seneste 2 år', 'ev-charge-log' ); ?></h3>
 			<canvas id="ecl-chart" height="320" data-points="<?php echo esc_attr( wp_json_encode( $graph_points ) ); ?>" data-today="<?php echo esc_attr( $today ); ?>" aria-label="<?php esc_attr_e( 'Graf over batterikapacitet', 'ev-charge-log' ); ?>"></canvas>
+			</section>
 
 			<?php if ( ! empty( $recent ) ) : ?>
+			<section class="ecl-card">
 				<h3><?php esc_html_e( 'Seneste opladninger', 'ev-charge-log' ); ?></h3>
 				<table class="ecl-table">
 					<thead>
@@ -516,13 +589,14 @@ class ECL_Charge_Log {
 						<?php endforeach; ?>
 					</tbody>
 				</table>
+			</section>
 			<?php endif; ?>
 
-			<form method="post">
+			<form method="post" class="ecl-logout">
 				<?php wp_nonce_field( 'pc_local_logout', 'pc_local_nonce' ); ?>
 				<input type="hidden" name="pc_local_action" value="logout" />
 				<input type="hidden" name="pc_return_url" value="<?php echo esc_url( $current_url ); ?>" />
-				<button type="submit"><?php esc_html_e( 'Log ud', 'ev-charge-log' ); ?></button>
+				<button type="submit" class="ecl-ghost-btn"><?php esc_html_e( 'Log ud', 'ev-charge-log' ); ?></button>
 			</form>
 		</div>
 		<?php
