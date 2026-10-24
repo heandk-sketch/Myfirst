@@ -175,18 +175,55 @@
 		}
 	}
 
-	function savePhoto( file ) {
-		var formData = new FormData();
-		formData.append( 'action', 'ecl_save_photo' );
-		formData.append( 'nonce', data.photoNonce );
-		formData.append( 'ecl_photo', file );
+	// Shrinks large camera photos so the upload stays well below server limits.
+	function resizeForUpload( file ) {
+		var maxSide = 1600;
 
-		return fetch( data.ajaxUrl, {
-			method: 'POST',
-			body: formData,
-			credentials: 'same-origin'
+		return new Promise( function ( resolve ) {
+			var url = URL.createObjectURL( file );
+			var img = new Image();
+
+			img.onload = function () {
+				URL.revokeObjectURL( url );
+				var scale = Math.min( 1, maxSide / Math.max( img.naturalWidth, img.naturalHeight ) );
+				var width = Math.max( 1, Math.round( img.naturalWidth * scale ) );
+				var height = Math.max( 1, Math.round( img.naturalHeight * scale ) );
+				var tmp = document.createElement( 'canvas' );
+				tmp.width = width;
+				tmp.height = height;
+				tmp.getContext( '2d' ).drawImage( img, 0, 0, width, height );
+				tmp.toBlob( function ( blob ) {
+					resolve( blob || file );
+				}, 'image/jpeg', 0.85 );
+			};
+			img.onerror = function () {
+				URL.revokeObjectURL( url );
+				resolve( file );
+			};
+			img.src = url;
+		} );
+	}
+
+	function savePhoto( file ) {
+		return resizeForUpload( file ).then( function ( blob ) {
+			var formData = new FormData();
+			formData.append( 'action', 'ecl_save_photo' );
+			formData.append( 'nonce', data.photoNonce );
+			formData.append( 'ecl_photo', blob, 'photo.jpg' );
+
+			return fetch( data.ajaxUrl, {
+				method: 'POST',
+				body: formData,
+				credentials: 'same-origin'
+			} );
 		} ).then( function ( response ) {
-			return response.json().then( function ( result ) {
+			return response.text().then( function ( text ) {
+				var result = null;
+				try {
+					result = JSON.parse( text );
+				} catch ( e ) {
+					throw new Error( i18n.photoSaveFailed + ' (serverfejl ' + response.status + ')' );
+				}
 				if ( ! response.ok || ! result.success ) {
 					throw new Error( result.data && result.data.message ? result.data.message : i18n.photoSaveFailed );
 				}

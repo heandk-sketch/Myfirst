@@ -12,6 +12,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+require_once plugin_dir_path( __FILE__ ) . 'includes/golfscore-scan.php';
+
 global $golfscore_db_version;
 $golfscore_db_version = '1.0';
 
@@ -401,6 +403,8 @@ function golfscore_session_list() {
             </form>
             <div id="session-message"></div>
         </div>
+
+        <?php golfscore_scan_render_ui(); ?>
 
         <h3>Active Sessions</h3>
         <?php if ($sessions): ?>
@@ -1158,6 +1162,8 @@ function golfscore_admin_page() {
     ?>
     <div class="wrap">
         <h1>Golf Scores - Sessions History</h1>
+
+        <?php golfscore_scan_render_admin_section(); ?>
         
         <table class="widefat">
             <thead>
