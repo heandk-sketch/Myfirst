@@ -4,6 +4,17 @@ function _golfscoreDetectManualHole() {
     return /[?&]hole=/.test(window.location.search);
 }
 
+function _golfscoreSessionUrl(sessionId, hole) {
+    var url = new URL(window.location.href);
+    url.searchParams.set('session_id', sessionId);
+    if (hole) {
+        url.searchParams.set('hole', hole);
+    } else {
+        url.searchParams.delete('hole');
+    }
+    return url.toString();
+}
+
 function _golfscoreUpdateLiveScorecardTotal($, playerId, selectedScore) {
     var hole = parseInt($('#golfscore-hole-form input[name="hole"]').val(), 10);
     if (!playerId || !hole || isNaN(selectedScore)) {
@@ -311,7 +322,7 @@ jQuery(document).ready(function($) {
                         if (response.data.next_hole && parseInt(response.data.next_hole, 10) > 0) {
                             // Navigate without ?hole= so PHP defaults to current_hole
                             // and manualHole stays false on the new page.
-                            window.location.href = '?session_id=' + sessionId;
+                            window.location.href = _golfscoreSessionUrl(sessionId);
                         } else {
                             $response.slideUp();
                         }
@@ -331,7 +342,7 @@ jQuery(document).ready(function($) {
         var sessionId = $(this).data('session-id');
         var hole = $(this).data('hole');
         
-        window.location.href = '?session_id=' + sessionId + '&hole=' + hole;
+        window.location.href = _golfscoreSessionUrl(sessionId, hole);
     });
 
     function startSessionAutoSync() {
@@ -378,7 +389,7 @@ jQuery(document).ready(function($) {
                     // If the session has moved to a different hole, follow it —
                     // but only when the user hasn't manually picked a hole via the scorecard.
                     if (!manualHole && data.current_hole && parseInt(data.current_hole, 10) !== hole) {
-                        window.location.href = '?session_id=' + sessionId;
+                        window.location.href = _golfscoreSessionUrl(sessionId);
                         return;
                     }
 

@@ -17,6 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'JKQ_PLUGIN_FILE', __FILE__ );
 define( 'JKQ_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
+define( 'JKQ_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
 require_once JKQ_PLUGIN_DIR . 'includes/class-jkq-quiz.php';
 
@@ -33,6 +34,23 @@ function jkq_bootstrap_plugin(): void {
 
 	$quiz = new JKQ_Quiz();
 	$quiz->init();
+
+	if ( function_exists( 'pc_register_pwa' ) ) {
+		pc_register_pwa(
+			array(
+				'slug'             => 'julekalender-quiz',
+				'name'             => __( 'Julekalender Quiz', 'julekalender-quiz' ),
+				'short_name'       => __( 'Julequiz', 'julekalender-quiz' ),
+				'description'      => __( 'Svar på dagens julespørgsmål og følg stillingen.', 'julekalender-quiz' ),
+				'shortcode'        => 'julekalender_quiz',
+				'theme_color'      => '#b5232b',
+				'background_color' => '#fffaf0',
+				'icon_192'         => JKQ_PLUGIN_URL . 'assets/images/icon-192.png',
+				'icon_512'         => JKQ_PLUGIN_URL . 'assets/images/icon-512.png',
+				'scope'            => home_url( '/' ),
+			)
+		);
+	}
 }
 add_action( 'plugins_loaded', 'jkq_bootstrap_plugin', 20 );
 

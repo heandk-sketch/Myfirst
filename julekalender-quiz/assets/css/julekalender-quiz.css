@@ -208,6 +208,19 @@
 
 .jkq-intro {
 	color: #795548;
+	white-space: pre-line;
+}
+
+.jkq-intro-choice {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	margin: 1.5rem 0;
+}
+
+.jkq-intro-link {
+	position: relative;
+	margin-top: 1.5rem;
 }
 
 .jkq-result {
@@ -238,6 +251,34 @@
 	background: #fffaf0;
 	color: #795548;
 	font-weight: 700;
+}
+
+.jkq-standings-table-wrap {
+	overflow-x: auto;
+	margin: 1.5rem 0;
+}
+
+.jkq-standings-table {
+	width: 100%;
+	border-collapse: collapse;
+	background: rgba(255, 255, 255, 0.8);
+}
+
+.jkq-standings-table th,
+.jkq-standings-table td {
+	padding: 0.75rem 0.85rem;
+	border-bottom: 1px solid #ead8c0;
+	text-align: left;
+}
+
+.jkq-standings-table thead th {
+	color: #7d1f27;
+	font-size: 0.82rem;
+	text-transform: uppercase;
+}
+
+.jkq-standings-table tbody tr:first-child {
+	background: #fff4cf;
 }
 
 .jkq-card fieldset {

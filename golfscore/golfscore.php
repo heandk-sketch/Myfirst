@@ -14,6 +14,53 @@ if (!defined('ABSPATH')) {
 
 require_once plugin_dir_path( __FILE__ ) . 'includes/golfscore-scan.php';
 
+function golfscore_register_controller(): void {
+    if ( function_exists( 'pc_register_access_plugin' ) ) {
+        pc_register_access_plugin(
+            'golfscore',
+            __( 'GolfScore', 'golfscore' ),
+            'golfscore_session',
+            array(
+                '192' => plugin_dir_url( __FILE__ ) . 'assets/icons/golfscore-icon-192.png',
+                '512' => plugin_dir_url( __FILE__ ) . 'assets/icons/golfscore-icon-512.png',
+            )
+        );
+    }
+
+    if ( function_exists( 'pc_register_admin_page' ) ) {
+        pc_register_admin_page(
+            array(
+                'slug'       => 'golfscore',
+                'title'      => __( 'GolfScore', 'golfscore' ),
+                'capability' => 'manage_options',
+                'callback'   => 'golfscore_admin_page',
+            )
+        );
+    }
+}
+add_action( 'plugins_loaded', 'golfscore_register_controller', 20 );
+
+function golfscore_controller_active(): bool {
+    return function_exists( 'pc_register_access_plugin' );
+}
+
+function golfscore_has_access(): bool {
+    return ! golfscore_controller_active()
+        || ( function_exists( 'pc_local_user_can_access' ) && pc_local_user_can_access( 'golfscore' ) );
+}
+
+function golfscore_require_ajax_access(): void {
+    if ( ! golfscore_has_access() ) {
+        wp_send_json_error( array( 'message' => __( 'You do not have access to GolfScore.', 'golfscore' ) ), 403 );
+    }
+}
+
+foreach ( array( 'poll_session', 'create_session', 'add_player', 'delete_player', 'save_single_score', 'advance_hole', 'end_session', 'scan_save_result', 'scan_store_image' ) as $golfscore_action ) {
+    add_action( 'wp_ajax_golfscore_' . $golfscore_action, 'golfscore_require_ajax_access', 0 );
+    add_action( 'wp_ajax_nopriv_golfscore_' . $golfscore_action, 'golfscore_require_ajax_access', 0 );
+}
+unset( $golfscore_action );
+
 global $golfscore_db_version;
 $golfscore_db_version = '1.0';
 
@@ -108,7 +155,7 @@ add_action('wp_enqueue_scripts', 'golfscore_enqueue_assets');
  * Register PWA script and expose service worker URL.
  */
 function golfscore_enqueue_pwa_assets() {
-    if ( is_admin() ) {
+    if ( is_admin() || ! golfscore_should_load_pwa() ) {
         return;
     }
 
@@ -142,7 +189,7 @@ add_action( 'wp_enqueue_scripts', 'golfscore_enqueue_pwa_assets' );
  * Add PWA manifest and mobile meta tags.
  */
 function golfscore_add_pwa_head_tags() {
-    if ( is_admin() ) {
+    if ( is_admin() || ! golfscore_should_load_pwa() ) {
         return;
     }
 
@@ -159,6 +206,14 @@ function golfscore_add_pwa_head_tags() {
     echo '<meta name="apple-mobile-web-app-title" content="GolfScore">' . "\n";
 }
 add_action( 'wp_head', 'golfscore_add_pwa_head_tags' );
+
+function golfscore_should_load_pwa(): bool {
+    if ( ! golfscore_controller_active() ) {
+        return true;
+    }
+    $post = get_post();
+    return $post instanceof WP_Post && has_shortcode( $post->post_content, 'golfscore_session' );
+}
 
 /**
  * Allow custom query vars for dynamic PWA assets.
@@ -253,16 +308,8 @@ function golfscore_serve_pwa_assets() {
         header( 'Content-Type: application/javascript; charset=utf-8' );
         header( 'Service-Worker-Allowed: /' );
 
-        $cache_name = 'golfscore-pwa-v4';
-        $start_url  = golfscore_get_pwa_start_url();
-
-        echo "const GOLFSCORE_CACHE = '" . esc_js( $cache_name ) . "';\n";
-        echo "const GOLFSCORE_SHELL = ['" . esc_js( $start_url ) . "'];\n";
         ?>
 self.addEventListener('install', (event) => {
-    event.waitUntil(
-        caches.open(GOLFSCORE_CACHE).then((cache) => cache.addAll(GOLFSCORE_SHELL))
-    );
     self.skipWaiting();
 });
 
@@ -270,52 +317,9 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((keys) => Promise.all(
             keys
-                .filter((key) => key !== GOLFSCORE_CACHE)
+                .filter((key) => key.startsWith('golfscore-pwa-'))
                 .map((key) => caches.delete(key))
-        ))
-    );
-    self.clients.claim();
-});
-
-self.addEventListener('fetch', (event) => {
-    if (event.request.method !== 'GET') {
-        return;
-    }
-
-    const req = event.request;
-    const isNavigation = req.mode === 'navigate';
-
-    if (isNavigation) {
-        event.respondWith(
-            fetch(req)
-                .then((response) => {
-                    const cloned = response.clone();
-                    caches.open(GOLFSCORE_CACHE).then((cache) => cache.put(req, cloned));
-                    return response;
-                })
-                .catch(() => caches.match(req).then((cached) => cached || caches.match(GOLFSCORE_SHELL[0])))
-        );
-        return;
-    }
-
-    event.respondWith(
-        caches.match(req).then((cached) => {
-            if (cached) {
-                return cached;
-            }
-
-            return fetch(req)
-                .then((response) => {
-                    if (!response || response.status !== 200) {
-                        return response;
-                    }
-
-                    const copy = response.clone();
-                    caches.open(GOLFSCORE_CACHE).then((cache) => cache.put(req, copy));
-                    return response;
-                })
-                .catch(() => caches.match(GOLFSCORE_SHELL[0]));
-        })
+        )).then(() => self.clients.claim())
     );
 });
         <?php
@@ -328,6 +332,12 @@ add_action( 'template_redirect', 'golfscore_serve_pwa_assets' );
  * Shortcode: [golfscore_session] - Main scoring interface
  */
 function golfscore_session_shortcode() {
+    if ( golfscore_controller_active() && ! golfscore_has_access() ) {
+        if ( function_exists( 'pc_get_local_access_user_id' ) && function_exists( 'pc_render_local_access_form' ) && ! pc_get_local_access_user_id() ) {
+            return pc_render_local_access_form();
+        }
+        return '<p>' . esc_html__( 'You do not have access to GolfScore.', 'golfscore' ) . '</p>';
+    }
     ob_start();
     $session_id = intval($_GET['session_id'] ?? 0);
     
@@ -430,7 +440,7 @@ function golfscore_session_list() {
                             <td><?php echo $session->current_hole; ?>/<?php echo $session->total_holes; ?></td>
                             <td><?php echo $players; ?></td>
                             <td>
-                                <a href="?session_id=<?php echo $session->id; ?>" class="button">Score</a>
+                                <a href="<?php echo esc_url( add_query_arg( 'session_id', $session->id, remove_query_arg( 'hole' ) ) ); ?>" class="button">Score</a>
                                 <button class="button golfscore-end-session" data-session-id="<?php echo $session->id; ?>">End</button>
                             </td>
                         </tr>
@@ -1138,6 +1148,10 @@ function golfscore_ajax_end_session() {
  * Admin Menu
  */
 function golfscore_admin_menu() {
+    if ( function_exists( 'pc_register_admin_page' ) ) {
+        return;
+    }
+
     add_menu_page(
         'Golf Scores',
         'GolfScore',

@@ -30,7 +30,7 @@ require_once PC_PLUGIN_DIR . 'includes/class-plugin-controller-pwa.php';
  * Registers an app that can be installed on a phone, without clashing with other apps.
  *
  * Required arguments: slug, name, shortcode. Optional: short_name, description,
- * theme_color, background_color, icon_192, icon_512, orientation.
+ * theme_color, background_color, icon_192, icon_512, orientation, scope.
  *
  * @param array<string, mixed> $args App configuration.
  * @return bool Whether the app was registered.

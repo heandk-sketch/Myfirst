@@ -46,7 +46,7 @@ class PC_Plugin_Controller_Pwa {
 	 * Registers an installable app.
 	 *
 	 * Required: slug, name, shortcode. Optional: short_name, description, theme_color,
-	 * background_color, icon_192, icon_512, orientation.
+	 * background_color, icon_192, icon_512, orientation, scope.
 	 *
 	 * @param array<string, mixed> $args App configuration.
 	 * @return bool Whether the app was registered.
@@ -75,6 +75,7 @@ class PC_Plugin_Controller_Pwa {
 			'icon_192'         => isset( $args['icon_192'] ) ? esc_url_raw( (string) $args['icon_192'] ) : '',
 			'icon_512'         => isset( $args['icon_512'] ) ? esc_url_raw( (string) $args['icon_512'] ) : '',
 			'orientation'      => isset( $args['orientation'] ) ? sanitize_key( (string) $args['orientation'] ) : 'portrait',
+			'scope'            => isset( $args['scope'] ) ? esc_url_raw( (string) $args['scope'] ) : '',
 		);
 		return true;
 	}
@@ -101,10 +102,15 @@ class PC_Plugin_Controller_Pwa {
 	/**
 	 * Gets the scope for a start URL. Falls back to the site root for plain permalinks.
 	 *
-	 * @param string $start_url Start URL.
+	 * @param string $start_url       Start URL.
+	 * @param string $configured_scope Optional explicit app scope.
 	 * @return string
 	 */
-	private function scope_for( string $start_url ): string {
+	private function scope_for( string $start_url, string $configured_scope = '' ): string {
+		if ( '' !== $configured_scope ) {
+			return trailingslashit( $configured_scope );
+		}
+
 		$parts = wp_parse_url( $start_url );
 		if ( ! empty( $parts['query'] ) || empty( $parts['path'] ) ) {
 			return home_url( '/' );
@@ -208,7 +214,7 @@ class PC_Plugin_Controller_Pwa {
 		}
 
 		$sw_url = esc_url_raw( $this->url( 'sw', $app['slug'], $post->ID ) );
-		$scope  = esc_url_raw( $this->scope_for( $permalink ) );
+		$scope  = esc_url_raw( $this->scope_for( $permalink, $app['scope'] ) );
 		// Unregisters other service workers on this scope first so only this app's worker controls the page.
 		echo '<script>if("serviceWorker"in navigator){window.addEventListener("load",function(){'
 			. 'var s=' . wp_json_encode( $scope ) . ',w=' . wp_json_encode( $sw_url ) . ';'
@@ -280,7 +286,7 @@ class PC_Plugin_Controller_Pwa {
 			'description'      => $app['description'],
 			'id'               => $start_url,
 			'start_url'        => $start_url,
-			'scope'            => $this->scope_for( $start_url ),
+			'scope'            => $this->scope_for( $start_url, $app['scope'] ),
 			'display'          => 'standalone',
 			'orientation'      => $app['orientation'],
 			'background_color' => $app['background_color'],
