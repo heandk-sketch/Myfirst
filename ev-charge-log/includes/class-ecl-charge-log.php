@@ -100,7 +100,15 @@ class ECL_Charge_Log {
 			self::install();
 		}
 
-		pc_register_access_plugin( self::ACCESS_KEY, __( 'EV Charge Log', 'ev-charge-log' ) );
+		pc_register_access_plugin(
+			self::ACCESS_KEY,
+			__( 'EV Charge Log', 'ev-charge-log' ),
+			'ev_charge_log',
+			array(
+				'192' => ECL_PLUGIN_URL . 'assets/images/icon-192.png',
+				'512' => ECL_PLUGIN_URL . 'assets/images/icon-512.png',
+			)
+		);
 		pc_register_admin_page(
 			array(
 				'slug'       => self::PAGE_SLUG,

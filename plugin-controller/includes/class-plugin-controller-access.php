@@ -31,24 +31,32 @@ class PC_Plugin_Controller_Access {
 	/**
 	 * Frontend plugins that can be assigned to local users.
 	 *
-	 * @var array<string, string>
+	 * @var array<string, array{title: string, shortcode: string, icon_192: string, icon_512: string}>
 	 */
 	private static array $plugins = array();
 
 	/**
 	 * Registers a plugin so local users can be granted access to it.
 	 *
-	 * @param string $slug  Unique plugin key.
-	 * @param string $title Name shown in the admin.
+	 * @param string               $slug      Unique plugin key.
+	 * @param string               $title     Name shown in the admin and launcher.
+	 * @param string               $shortcode Shortcode rendered by the launcher.
+	 * @param array<string, string> $icons     Optional icon URLs with 192 and 512 keys.
 	 * @return bool Whether the plugin was registered.
 	 */
-	public static function register_plugin( string $slug, string $title ): bool {
-		$slug = sanitize_key( $slug );
+	public static function register_plugin( string $slug, string $title, string $shortcode = '', array $icons = array() ): bool {
+		$slug      = sanitize_key( $slug );
+		$shortcode = sanitize_key( $shortcode );
 		if ( '' === $slug || '' === trim( $title ) ) {
 			return false;
 		}
 
-		self::$plugins[ $slug ] = sanitize_text_field( $title );
+		self::$plugins[ $slug ] = array(
+			'title'     => sanitize_text_field( $title ),
+			'shortcode' => $shortcode,
+			'icon_192'  => isset( $icons['192'] ) ? esc_url_raw( $icons['192'] ) : '',
+			'icon_512'  => isset( $icons['512'] ) ? esc_url_raw( $icons['512'] ) : '',
+		);
 		return true;
 	}
 
@@ -74,6 +82,105 @@ class PC_Plugin_Controller_Access {
 		add_action( 'admin_menu', array( $this, 'register_admin_page' ), 100 );
 		add_action( 'admin_post_pc_save_local_access', array( $this, 'save_settings' ) );
 		add_action( 'init', array( $this, 'handle_frontend_request' ), 5 );
+		add_shortcode( 'plugin_controller_apps', array( $this, 'render_app_launcher' ) );
+		wp_register_style(
+			'pc-app-launcher',
+			PC_PLUGIN_URL . 'assets/css/plugin-controller-apps.css',
+			array(),
+			PC_PLUGIN_VERSION
+		);
+	}
+
+	/**
+	 * Renders the shared frontend launcher and a selected plugin.
+	 *
+	 * @return string
+	 */
+	public function render_app_launcher(): string {
+		wp_enqueue_style( 'pc-app-launcher' );
+
+		if ( 0 === self::get_authenticated_user_id() ) {
+			return '<div class="pc-app-shell pc-app-shell--login">' . self::render_login_form() . '</div>';
+		}
+
+		$requested_slug = isset( $_GET['pc_app'] ) && is_string( $_GET['pc_app'] )
+			? sanitize_key( wp_unslash( $_GET['pc_app'] ) )
+			: '';
+
+		if ( '' !== $requested_slug ) {
+			return $this->render_selected_app( $requested_slug );
+		}
+
+		$available_plugins = array_filter(
+			self::$plugins,
+			static function ( array $plugin, string $slug ): bool {
+				return self::user_can_access( $slug ) && '' !== $plugin['shortcode'];
+			},
+			ARRAY_FILTER_USE_BOTH
+		);
+
+		if ( empty( $available_plugins ) ) {
+			return '<div class="pc-app-shell"><p class="pc-app-empty">' . esc_html__( 'Du har ingen tilgængelige apps endnu.', 'plugin-controller' ) . '</p></div>';
+		}
+
+		ob_start();
+		?>
+		<section class="pc-app-shell pc-app-launcher" aria-labelledby="pc-app-launcher-title">
+			<div class="pc-app-heading">
+				<p class="pc-app-kicker"><?php esc_html_e( 'Plugin Controller', 'plugin-controller' ); ?></p>
+				<h2 id="pc-app-launcher-title"><?php esc_html_e( 'Dine apps', 'plugin-controller' ); ?></h2>
+				<p><?php esc_html_e( 'Vælg et værktøj for at komme i gang.', 'plugin-controller' ); ?></p>
+			</div>
+			<ul class="pc-app-grid">
+				<?php foreach ( $available_plugins as $slug => $plugin ) : ?>
+					<li>
+						<a class="pc-app-card" href="<?php echo esc_url( add_query_arg( 'pc_app', $slug ) ); ?>">
+							<?php if ( '' !== $plugin['icon_192'] ) : ?>
+								<span class="pc-app-card__icon">
+									<img
+										src="<?php echo esc_url( $plugin['icon_192'] ); ?>"
+										<?php if ( '' !== $plugin['icon_512'] ) : ?>
+											srcset="<?php echo esc_url( $plugin['icon_192'] ); ?> 192w, <?php echo esc_url( $plugin['icon_512'] ); ?> 512w"
+											sizes="64px"
+										<?php endif; ?>
+										alt=""
+										width="64"
+										height="64"
+										loading="lazy"
+									/>
+								</span>
+							<?php endif; ?>
+							<span class="pc-app-card__content">
+								<strong><?php echo esc_html( $plugin['title'] ); ?></strong>
+								<span><?php esc_html_e( 'Åbn app', 'plugin-controller' ); ?> <span aria-hidden="true">→</span></span>
+							</span>
+						</a>
+					</li>
+				<?php endforeach; ?>
+			</ul>
+		</section>
+		<?php
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Renders one requested app after checking its access grant.
+	 *
+	 * @param string $slug Registered plugin key.
+	 * @return string
+	 */
+	private function render_selected_app( string $slug ): string {
+		if ( ! isset( self::$plugins[ $slug ] ) || ! self::user_can_access( $slug ) ) {
+			return '<p>' . esc_html__( 'Du har ikke adgang til denne app.', 'plugin-controller' ) . '</p>';
+		}
+
+		$plugin = self::$plugins[ $slug ];
+		if ( '' === $plugin['shortcode'] ) {
+			return '<p>' . esc_html__( 'Denne app kan ikke åbnes fra launcheren endnu.', 'plugin-controller' ) . '</p>';
+		}
+
+		$back_url = remove_query_arg( 'pc_app' );
+		return '<div class="pc-app-shell pc-app-shell--selected"><p class="pc-app-back"><a href="' . esc_url( $back_url ) . '">← ' . esc_html__( 'Tilbage til dine apps', 'plugin-controller' ) . '</a></p>' . do_shortcode( '[' . $plugin['shortcode'] . ']' ) . '</div>';
 	}
 
 	/**
@@ -220,10 +327,10 @@ class PC_Plugin_Controller_Access {
 										<?php if ( empty( self::$plugins ) ) : ?>
 											<p class="description"><?php esc_html_e( 'No plugins have registered for local access.', 'plugin-controller' ); ?></p>
 										<?php endif; ?>
-										<?php foreach ( self::$plugins as $plugin_slug => $plugin_title ) : ?>
+										<?php foreach ( self::$plugins as $plugin_slug => $plugin ) : ?>
 											<label>
 												<input type="checkbox" name="pc_local_plugins[<?php echo esc_attr( (string) $slot ); ?>][]" value="<?php echo esc_attr( $plugin_slug ); ?>" <?php checked( $entry && in_array( $plugin_slug, $entry['plugins'], true ) ); ?> />
-												<?php echo esc_html( $plugin_title ); ?>
+												<?php echo esc_html( $plugin['title'] ); ?>
 											</label><br />
 										<?php endforeach; ?>
 									</fieldset>

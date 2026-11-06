@@ -1,0 +1,134 @@
+.pc-app-shell {
+	box-sizing: border-box;
+	max-width: 1080px;
+	margin: 2rem auto;
+	padding: clamp(1.25rem, 3vw, 2.5rem);
+	border: 1px solid #e2e8f0;
+	border-radius: 24px;
+	background: linear-gradient(145deg, #f8fafc 0%, #ffffff 58%, #eef6ff 100%);
+	color: #172033;
+	box-shadow: 0 18px 45px rgba(30, 41, 59, 0.1);
+}
+
+.pc-app-shell--login {
+	max-width: 540px;
+}
+
+.pc-app-heading {
+	margin-bottom: 1.5rem;
+}
+
+.pc-app-kicker {
+	margin: 0 0 0.35rem;
+	color: #2563eb;
+	font-size: 0.75rem;
+	font-weight: 700;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+}
+
+.pc-app-heading h2 {
+	margin: 0;
+	color: #0f172a;
+	font-size: clamp(1.75rem, 4vw, 2.5rem);
+	line-height: 1.1;
+}
+
+.pc-app-heading p:last-child {
+	margin: 0.65rem 0 0;
+	color: #64748b;
+}
+
+.pc-app-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+	gap: 1rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.pc-app-card {
+	display: flex;
+	align-items: center;
+	min-height: 112px;
+	gap: 1rem;
+	padding: 1rem;
+	border: 1px solid #e2e8f0;
+	border-radius: 18px;
+	background: #ffffff;
+	color: #172033;
+	text-decoration: none;
+	box-shadow: 0 5px 16px rgba(30, 41, 59, 0.06);
+	transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.pc-app-card:hover,
+.pc-app-card:focus-visible {
+	border-color: #93c5fd;
+	box-shadow: 0 12px 24px rgba(37, 99, 235, 0.16);
+	color: #172033;
+	transform: translateY(-3px);
+}
+
+.pc-app-card__icon {
+	display: grid;
+	flex: 0 0 64px;
+	place-items: center;
+	width: 64px;
+	height: 64px;
+	overflow: hidden;
+	border-radius: 16px;
+	background: #eff6ff;
+}
+
+.pc-app-card__icon img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.pc-app-card__content {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 0.45rem;
+}
+
+.pc-app-card__content strong {
+	font-size: 1.05rem;
+}
+
+.pc-app-card__content span {
+	color: #2563eb;
+	font-size: 0.9rem;
+	font-weight: 600;
+}
+
+.pc-app-empty {
+	margin: 0;
+	color: #64748b;
+}
+
+.pc-app-back {
+	margin: 0 0 1.5rem;
+}
+
+.pc-app-back a {
+	color: #2563eb;
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.pc-app-back a:hover,
+.pc-app-back a:focus-visible {
+	text-decoration: underline;
+}
+
+@media (max-width: 600px) {
+	.pc-app-shell {
+		margin: 1rem 0;
+		border-radius: 18px;
+	}
+}

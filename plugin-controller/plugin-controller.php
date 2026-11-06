@@ -123,11 +123,13 @@ function pc_render_local_access_form(): string {
  * Registers a plugin that local users can be granted access to.
  *
  * @param string $slug  Unique plugin key.
- * @param string $title Name shown on the Local Access page.
+ * @param string               $title     Name shown on the Local Access page.
+ * @param string               $shortcode Frontend shortcode rendered by the app launcher.
+ * @param array<string, string> $icons     Optional icon URLs with 192 and 512 keys.
  * @return bool Whether the plugin was registered.
  */
-function pc_register_access_plugin( string $slug, string $title ): bool {
-	return PC_Plugin_Controller_Access::register_plugin( $slug, $title );
+function pc_register_access_plugin( string $slug, string $title, string $shortcode = '', array $icons = array() ): bool {
+	return PC_Plugin_Controller_Access::register_plugin( $slug, $title, $shortcode, $icons );
 }
 
 /**

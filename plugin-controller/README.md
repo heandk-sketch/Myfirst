@@ -67,7 +67,36 @@ Plugin Controller er ikke en dependency, før et plugin selv kalder API'et. Tjek
 
 Plugin Controller har en **Local Access**-side, hvor administratorer kan konfigurere op til fire WordPress-brugere med separate lokale adgangskoder. Adgangskoder gemmes som WordPress-hashes; vellykket login opretter en underskrevet, HTTP-only cookie, som udløber efter 14 dage.
 
-Hver bruger kan tildeles adgang til bestemte plugins under **Plugin access**. Plugins registrerer sig med `pc_register_access_plugin( 'slug', 'Titel' )` (fx fra `plugins_loaded` med prioritet 20) og tjekker adgang med `pc_local_user_can_access( 'slug' )`. Brugere har som standard ikke adgang til nogen plugins, før en administrator har valgt dem.
+Hver bruger kan tildeles adgang til bestemte plugins under **Plugin access**. Plugins registrerer sig med `pc_register_access_plugin( 'slug', 'Titel', 'plugin_shortcode' )` (fx fra `plugins_loaded` med prioritet 20) og tjekker adgang med `pc_local_user_can_access( 'slug' )`. Brugere har som standard ikke adgang til nogen plugins, før en administrator har valgt dem.
+
+## Fælles app-launcher
+
+Opret én WordPress-side med shortcode `[plugin_controller_apps]`. Den lokale
+bruger får vist links til de registrerede plugins, som brugeren har adgang til.
+Når et link åbnes, viser Plugin Controller pluginets registrerede shortcode på
+samme side. Der skal derfor ikke oprettes en ny WordPress-side for hvert plugin.
+
+Et frontend-plugin registrerer sig sådan:
+
+```php
+pc_register_access_plugin(
+	'my-plugin',
+	__( 'My Plugin', 'my-plugin' ),
+	'my_plugin_shortcode',
+	array(
+		'192' => MY_PLUGIN_URL . 'assets/icon-192.png',
+		'512' => MY_PLUGIN_URL . 'assets/icon-512.png',
+	)
+);
+```
+
+Shortcoden skal være registreret med `add_shortcode()`. Pluginets egen
+adgangskontrol bør stadig være aktiv, så pluginet også er beskyttet, hvis det
+senere indsættes direkte på en anden side.
+
+Ikonerne er valgfrie. Hvis de angives, bruger app-launcheren dem også som
+præsentationsbilleder på hjemmesiden. De samme filer kan derfor bruges til
+Android/PWA-installationen og web-launcheren.
 
 Frontend-plugins kan bruge `pc_get_local_access_user_id()` (returnerer `0`, hvis der ikke er et gyldigt lokalt login) og `pc_render_local_access_form()` til loginformularen. Formularen håndterer selv login og logout via nonce-beskyttede POST-forespørgsler. Shortcode-beskyttede data bør kun vises, når bruger-ID'et er større end nul.
 
